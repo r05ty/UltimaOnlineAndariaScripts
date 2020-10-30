@@ -1,0 +1,778 @@
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+; Looter
+set %lootFT POF_DEG_EEG_DDG_JJG_MJG_ODG
+; ^^^ FindType věcí k lootu ^^^
+
+set %bagContFT CKF                    ; FindType kontejnerů jako pytel, batoh
+set %corpseFT YFM                     ; FindType kontejnerů mrtvol
+set %backpackID                       ; Nastav ID batohu pro loot, nebo nech proměnnou prázdnou pro hlavní batoh ( #backpackID )
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+; Genocida
+set %targetFT AC_AH_CD_ID_II_IS_OC_TG ; FindType cílů pro eliminaci :)
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+; Zbraň
+set %weaponID                         ; Pokud chceš aby zbraň našel skript, tak tenhle celý řádek zakomentuj nebo nech proměnnou prázdnou
+set %weaponFT TSF_WSF                 ; FindType zbraní
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+; Kuchání
+set %gutting on                       ; Zapíná / vypíná kuchání | on - kuchá / off - nekuchá
+set %guttingID                        ; Pokud chceš aby nástroj na kuchání našel skript, tak tenhle celý řádek zakomentuj nebo nech proměnnou prázdnou
+set %guttingFT BNF_CNF                ; FindType nástroje na kuchání | TSF_WSF - dýka
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+; Stříhání kůží, obvazů...
+set %shearing on                      ; Zapíná / vypíná stříhání | on - stříhá / off - nestříhá
+set %scissorsID                       ; Pokud chceš aby nůžky našel skript, tak tenhle celý řádek zakomentuj nebo nech proměnnou prázdnou
+set %scissorsFT JAG_KAG               ; FindType nůžek | JAG_KAG - nůžky
+
+set %shearFT DEG_EEG                  ; FindType věcí na nastříhání
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+; Nákladní kůň
+set %packHorse on                     ;
+set %packHorseID QSG                  ; ID náklaďáka
+set %packHorsePosX 1958               ; Pozice X zaparkovanýho náklaďáka
+set %packHorsePosY 3064               ; Pozice Y zaparkovanýho náklaďáka
+set %packHorseWeightMax 1500          ; Nosnost nákladního koně je 1500 bez přetížení
+set %packHorseLootFT %lootFT          ; FindType itemů co jdou do náklaďáka, nebo nech %lootFT pro všechno co lootuješ
+set %packHorseHitchingPostID UHQRJMD  ; ID úvaznýho kůlu
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+set %weightAdjust 30                  ; Maximální naložení = aktuální naložení + proměnná
+set %maxWeightAdjust 0                ; Maximální nosnost = aktuální maximální nosnost + proměnná
+
+set %mobileFindTolerance 1            ; Tolerance vzdálenosti při move k pohybujícím se cílům
+set %mobileFindTimeout 20             ; Časový limit při move k pohybujícím se cílům
+
+set %immobileFindTolerance 2          ; Tolerance vzdálenosti při move k nepohybujícím se cílům
+set %immobileFindTimeout 20           ; Časový limit při move k pohybujícím se cílům
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+;set %wpNum 1 ; Přeskočení waypointu
+
+set %wpTimeout 50
+
+set %wp1 1968,3115
+set %wp2 1914,3120
+
+set %waitTime 5
+set %waitTimePlus 10
+
+set %alwaysRunStay off
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+set %emptyString
+ignoreItem #charID
+
+goSub consoleStart 1574 881 ; Ve Windows 10 při FullHD pravý dolní roh :)
+
+if %backpackID = N/A || %backpackID = %emptyString
+   set %backpackID #backpackID
+
+goSub itemInBackpackFinder #charID %weaponFT %weaponID ; Hledá zbraň v ruce
+if #result = #false
+{
+   goSub itemInBackpackFinder %backpackID %weaponFT %weaponID ; Hledá zbraň v batohu
+   if #result = #false && %backpackID <> #backpackID
+   {
+      goSub itemInBackpackFinder #backpackID %weaponFT %weaponID ; Hledá zbraň v hlavním batohu
+      if #result <> #false
+         goSub itemEquip #result
+   }
+   else
+      goSub itemEquip #result
+}
+if #result = #false
+{
+   goSub console Zbraň nenalezena
+   halt
+}
+else
+{
+   set %weaponID #result
+   goSub console Zbraň nalezena
+}
+
+goSub itemInBackpackFinder #charID %guttingFT %guttingID %gutting ; Hledá nástroj na kuchání v ruce
+if #result = #false
+{
+   goSub itemInBackpackFinder %backpackID %guttingFT %guttingID %gutting ; Hledá nástroj na kuchání v batohu
+   if #result = #false && %backpackID <> #backpackID
+      goSub itemInBackpackFinder #backpackID %guttingFT %guttingID %gutting ; Hledá nástroj na kuchání v hlavním batohu
+}
+if #result = #false
+{
+   set %gutting off
+   goSub console Nástroj na kuchání nenalezen
+}
+else
+{
+   set %guttingID #result
+   goSub console Nástroj na kuchání nalezen
+}
+if %gutting = off
+   goSub console Kuchání vypnuto
+
+goSub itemInBackpackFinder %backpackID %scissorsFT %scissorsID %shearing ; Hledá nůžky na kuchání v batohu
+if #result = #false && %backpackID <> #backpackID
+   goSub itemInBackpackFinder #backpackID %scissorsFT %scissorsID %shearing ; Hledá nůžky na kuchání v hlavním batohu
+
+if #result = #false
+{
+   set %shearing off
+   goSub console Nůžky nenalezeny
+}
+else
+{
+   set %scissorsID #result
+   goSub console Nůžky nalezeny
+}
+if %shearing = off
+   goSub console Stříhání vypnuto
+
+goSub wpPrepare
+
+goSub alwaysRunSwitcher on
+
+goto weightCheck
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+; Looter
+looter:
+
+; Hledá spadlé věci na zemi
+goSub findItems %lootFT G
+if #result <> #false
+{
+   goSub moveTo #findX #findY %immobileFindTolerance %immobileFindTimeout
+   exEvent drag #findID #findStack
+   wait %waitTimePlus
+   exEvent dropC %backpackID
+   wait %waitTimePlus
+   goto looter
+}
+
+; Corpse
+corpse:
+
+; Hledá mrtvoly na zemi
+goSub findItems %corpseFT G
+if #result = #false
+   goto genocida
+set %corpseID #result
+goSub moveTo #findX #findY %immobileFindTolerance %immobileFindTimeout
+goSub useObjectOnTarget %guttingID %corpseID %gutting
+if %gutting = on && %weaponID <> %guttingID
+   goSub itemEquip %weaponID
+
+set %containerID %corpseID
+set %containerNum 1
+set %containerIDNum 1
+
+lookupContainer:
+set #lObjectID %containerID
+set %containerPos ( %containerIDNum - 1 ) * 160
+nextCPos %containerPos 0
+
+event macro 17 0
+wait %waitTime
+
+findItem * C_ , %containerID
+if #findCnt > 0
+{
+   for #findIndex 1 #findCnt
+   {
+      goSub findItemProperty #findType #findID ; PŘÍPADNĚ SMAZAT
+      if #findType in %bagContFT
+      {
+         set %containerID . %containerNum #findID
+         set %containerNum %containerNum + 1
+      }
+      if #findType in %lootFT
+      {
+         wait %waitTimePlus
+         exEvent drag #findID #findStack
+         wait %waitTimePlus
+         exEvent dropC %backpackID
+         wait %waitTimePlus
+         if #findType in %shearFT
+         {
+            goSub useObjectOnTarget %scissorsID #findID %shearing
+            wait %waitTime
+         }
+      }
+   }
+}
+if %containerID . %containerIDNum <> N/A
+{
+   set %containerID %containerID . %containerIDNum
+   set %containerIDNum %containerIDNum + 1
+   goto lookupContainer
+}
+ignoreItem %corpseID
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+; ---- Pokud toto vidíš můžeš to smazat :) ----
+if MyShard in #shard && Losos in #charName
+   goSub sayLastTarget %corpseID .remove
+; ---------------------------------------------
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+weightCheck:
+goSub weightCheck
+if #result = #true
+{
+   goSub console Překročeno zatížení
+   if %packHorse = on
+   {
+      if ! ( ( %packHorsePosX >= 0 || %packHorsePosX <= 0 ) && ( %packHorsePosY >= 0 || %packHorsePosY <= 0 ) )
+      {
+         set %packHorse off
+         goSub console Špatné souřadnice náklaďáka
+         goto weightCheck
+      }
+      goSub moveTo %packHorsePosX %packHorsePosY 1 %immobileFindTimeout
+      goSub findItems %packHorseHitchingPostID G
+      if #result = #false
+      {
+         set %packHorse off
+         goSub console Špatné ID úvazného kůlu
+         goto weightCheck
+      }
+      goSub findItems %packHorseID G
+      if #result = #false
+      {
+         set %packHorse off
+         goSub console Špatné ID náklaďáka
+         goto weightCheck
+      }
+      goSub useObject %packHorseHitchingPostID
+      goSub moveLootToPackHorse
+      goSub useObjectOnTarget %packHorseHitchingPostID %packHorseID
+      wait %waitTimePlus
+      goSub propertyStr %packHorseID Weight: , #spc #spc , Stones
+      set *GpackHorseWeight #result
+      goSub console Naložení náklaďáka: *GpackHorseWeight
+      if *GpackHorseWeight > %packHorseWeightMax
+      {
+         goSub console Náklaďák plnej
+
+         ; ---------------------------------------------
+         if MyShard in #shard && Losos in #charName
+         {
+            goSub useObject %packHorseHitchingPostID
+            wait %waitTime
+            goSub removeLootFromPackHorse
+            wait %waitTime
+            goSub useObjectOnTarget %packHorseHitchingPostID %packHorseID
+            goSub sayLastTarget %weaponID .set , #spc , More1 , #spc , 0ff00ff
+            goto weightCheck
+         }
+      ; ---------------------------------------------
+
+
+      sound
+      halt
+      }
+   }
+   else
+   {
+      sound
+      halt
+   }
+}
+menu Window Title Konzole - V: , #weight , / , #maxweight - N: *GpackHorseWeight , /1500
+goto looter
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+; Genocida
+genocida:
+goSub findItems %targetFT G
+if #result = #false
+{
+   goSub waypointRunner
+   goto looter
+}
+goSub moveTo #findX #findY %mobileFindTolerance %mobileFindTimeout
+event macro 6 0
+set %charStatusWarMode #true
+set  #lTargetID #result
+event macro 27 0
+goSub moveTo #findX #findY %mobileFindTolerance %mobileFindTimeout #findID
+event macro 6 0
+set %charStatusWarMode #false
+
+goto corpse
+
+
+alwaysRunSwitcher %alwaysRunStay
+HALT
+
+; +---------------+
+; | Konec skriptu |
+; +---------------+
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub findItemProperty
+if %1 in *findTypeName
+{
+   goSub cleanSub
+   return
+}
+
+event property %2
+set %property #property
+str left %property 1
+if #strRes > 0
+{
+   str pos %property #spc 1
+   set %pos1 #strRes + 1
+}
+else
+   set %pos1 1
+str pos %property $ 1
+set %pos2 #strRes - %pos1
+str mid %property %pos1 %pos2
+
+set *findTypeName *findTypeName , %1 , - , #strRes , /
+
+goSub cleanSub
+return
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub moveTo
+while ! ( ABS ( #charPosX - %1 ) <= %3 && ABS ( #charPosY - %2 ) <= %3 ) || %5 <> N/A
+{
+   if #charPosX = %6 && #charPosY = %7 && %5 = N/A
+   {
+      set %8 %1 - #charPosX
+      set %9 %2 - #charPosY
+      if %8 > 0
+         set %10 #charPosX + 3
+      if %8 < 0
+         set %10 #charPosX - 3
+      if %8 = 0
+         set %10 #charPosX
+      if %9 > 0
+         set %11 #charPosY + 3
+      if %9 < 0
+         set %11 #charPosY - 3
+      if %9 = 0
+         set %11 #charPosY
+      event pathFind %10 %11
+   }
+   if ! ( ABS ( #charPosX - %1 ) <= %3 && ABS ( #charPosY - %2 ) <= %3 ) && %1 <> 0 && %2 <> 0
+   {
+      set %6 #charPosX
+      set %7 #charPosY
+      move %1 %2 %3 %4
+   }
+   if %5 <> N/A
+   {
+      findItem %5 G
+      if #findX <> 0 && #findY <> 0
+      {
+         set %1 #findX
+         set %2 #findY
+      }
+   }
+   if %5 <> N/A && #findCnt = 0
+   {
+      set %5 N/A
+   }
+}
+goSub cleanSub
+return #findID
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub moveLootToPackHorse
+set #lObjectID %packHorseID
+nextCPos 0 0
+event macro 17 0
+
+wait %waitTime
+
+set %packHorseBackpack #contID
+
+findItem %packHorseLootFT C_ , %backpackID
+If #findCnt > 0
+{
+   for #findIndex 1 #findCnt
+   {
+      wait %waitTimePlus
+      exEvent drag #findID #findStack
+      wait %waitTimePlus
+      exEvent dropC %packHorseBackpack
+      wait %waitTimePlus
+   }
+}
+goSub cleanSub
+return
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub findItems
+if %3 <> N/A
+   set %3 _ , %3
+else
+   set %3
+findItem %1 %2 , %3
+if #findCnt > 0
+{
+   for #findIndex 1 #findCnt
+   {
+      if #findDist < %5 || %5 = N/A
+      {
+         set %4 #findIndex
+         set %5 #findDist
+      }
+   }
+   set #findIndex %4
+   goSub cleanSub
+   return #findID
+}
+goSub cleanSub
+return #false
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub cleanSub
+set %cleanSub 1
+while % . %cleanSub <> N/A || %cleanSub <= 5
+{
+   set % . %cleanSub N/A
+   set %cleanSub %cleanSub + 1
+}
+return
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub useObject
+set #lObjectID %1
+event macro 17 0
+goSub cleanSub
+return #lObjectID
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub wpPrepare
+if %wpNum = N/A
+   set %wpNum 1
+set %wpNumMax 1
+while %wp . %wpNumMax <> N/A
+      set %wpNumMax %wpNumMax + 1
+set %wpNumMax %wpNumMax - 1
+goSub console Waypointy: %wpNumMax
+goSub cleanSub
+return
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub consoleStart
+menu Hide
+menu Clear
+menu Window Title Konzole
+menu Window Color btnface
+menu Window Size 340 130
+menu Window Transparent 100
+
+menu Font BGColor btnface
+menu List Create console 0 0 340 135
+menu List Add console
+menu List Add console
+menu List Add console
+menu List Add console
+menu List Add console
+menu List Add console
+menu List Add console
+menu List Add console
+set %consoleLine1
+set %consoleLine2
+set %consoleLine3
+set %consoleLine4
+set %consoleLine5
+set %consoleLine6
+set %consoleLine7
+set %consoleLine8
+set %console 8
+menu Show %1 %2
+goSub cleanSub
+return
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub console
+set %consoleNum 1
+set %consoleMessage
+while % . %consoleNum <> N/A
+{
+   set %consoleMessage %consoleMessage , #spc , % . %consoleNum
+   set %consoleNum %consoleNum + 1
+}
+
+set %console %console + 1
+set %consoleLine . %console %consoleMessage
+set %consoleStart %console - 7
+
+menu Clear
+menu Font BGColor btnface
+menu List Create console 0 0 340 135
+
+for %consoleN %consoleStart %console
+   menu List Add console %consoleLine . %consoleN
+goSub cleanSub
+return
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub wpCoordsFromString
+str pos %1 ,
+set %posOfDivider #strRes - 1
+
+str left %1 %posOfDivider
+set %wpPosX #strRes
+
+str right %1 %posOfDivider
+set %wpPosY #strRes
+goSub cleanSub
+return
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub waypointRunner
+goSub wpCoordsFromString %wp . %wpNum
+
+goSub console Waypoint # , %wpNum ( , %wpPosX , , , %wpPosY , )
+
+repeat
+{
+   move %wpPosX %wpPosY 0 %wpTimeout
+   goSub findItems %targetFT G
+   if #result <> #false
+   {
+      goSub targetApproach #result
+      goto genocida
+   }
+}
+until %wpPosX = #charPosX && %wpPosY = #charPosY
+
+; event macro 13 14  ; Odhalení skrytého
+
+set %wpNum %wpNum + 1
+if %wpNum > %wpNumMax
+   set %wpNum 1
+goSub cleanSub
+return
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub propertyStr
+event property %1
+set %propertyStringStart 1
+
+str count #property $
+for %propertyStringCount 1 #strRes
+{
+   str pos #property $ %propertyStringCount
+   set %propertyStringPosition #strRes
+   set %propertyStringLength #strRes - %propertyStringStart
+   str mid #property %propertyStringStart %propertyStringLength
+   set %propertyStringStart %propertyStringPosition + 1
+   if %2 in #strRes
+   {
+      set %propertyString #strRes
+      str len %2
+      str del %propertyString 1 #strRes
+      if %3 in #strRes
+      {
+         set %propertyString #strRes
+         str len %propertyString
+         set %propertyStringLength #strRes
+         str len %3
+         set %propertyStringStart ( %propertyStringLength - #strRes ) + 1
+         str del %propertyString %propertyStringStart #strRes
+      }
+      goSub cleanSub
+      return #strRes
+   }
+}
+goSub cleanSub
+return
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub weightCheck
+if ( #weight + %weightAdjust )  > ( #maxWeight + %maxWeightAdjust )
+{
+   goSub cleanSub
+   return #true
+}
+goSub cleanSub
+return #false
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub itemInBackpackFinder
+if %4 = off
+{
+   goSub cleanSub
+   return
+}
+if %3 <> N/A && %3 <> %emptyString
+{
+   goSub cleanSub
+   return %3
+}
+findItem %2 C_ , %1
+if #findCnt = 0
+{
+   goSub cleanSub
+   return #false
+}
+goSub cleanSub
+return #findID
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub useObjectOnTarget
+if %3 = off
+{
+   goSub cleanSub
+   return
+}
+set #lObjectID %1
+event macro 17 0
+repeat
+   target
+until #targCurs = 1
+set #lTargetID %2
+set #lTargetKind 1
+event macro 22 0
+goSub cleanSub
+return
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub itemEquip ; Jenom na Sphere
+set #lObjectID %1
+event macro 17 0
+for %n 0 8
+{
+   wait 5
+   if #targCurs = 1
+   {
+      key ESC
+      break
+   }
+}
+goSub cleanSub
+return
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub jrnlMsg
+set %jrnlMsgNum 2
+set %sysMessage
+while % . %jrnlMsgNum <> N/A
+{
+   set %sysMessage %sysMessage , #spc , % . %jrnlMsgNum
+   set %jrnlMsgNum %jrnlMsgNum + 1
+}
+set #sysMsgCol %1
+event sysMessage %sysMessage
+set #sysMsgCol 0
+goSub cleanSub
+return
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub alwaysRunSwitcher
+set %alwaysRunSwitcherJournalIndex #jIndex
+event macro 32 0
+set #sysMsgCol 0
+while #true
+{
+   if #jIndex > %alwaysRunSwitcherJournalIndex
+   {
+      set %alwaysRunSwitcherJournalIndex %alwaysRunSwitcherJournalIndex + 1
+      scanJournal %alwaysRunSwitcherJournalIndex
+      if Always_run_is_now_off in #journal
+      {
+         if %1 = on
+         {
+            event macro 32 0
+            goSub console Zapínám "Always run"
+            break
+         }
+         goSub console Vypínám "Always run"
+         break
+      }
+      if Always_run_is_now_on in #journal
+      {
+         if %1 = off
+         {
+            event macro 32 0
+            goSub console 38 Vypínám "Always run"
+            break
+         }
+         goSub console 68 Zapínám "Always run"
+         break
+      }
+   }
+   wait %waitTime
+}
+goSub cleanSub
+return
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+sub sayLastTarget
+set #lTargetID %1
+event macro 1 0 %2
+repeat
+   target
+until #targCurs = 1
+set #lTargetKind 1
+event macro 22 0
+goSub cleanSub
+return
+
+; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+; Jenom při testování na Sphere
+sub removeLootFromPackHorse
+set #lObjectID %packHorseID
+nextCPos 0 0
+event macro 17 0
+wait %waitTime
+set %packHorseBackpack #contID
+findItem %packHorseLootFT C_ , %packHorseBackpack
+if #findCnt > 0
+{
+   for %n 1 #findCnt
+   {
+      goSub sayLastTarget #findID .remove
+      wait %waitTimePlus
+      set #findIndex #findIndex + 1
+   }
+}
+goSub cleanSub
+return
