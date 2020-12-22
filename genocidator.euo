@@ -1,17 +1,19 @@
 ; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 ; Looter
-set %lootFT POF_DEG_EEG_DDG_JJG_MJG_ODG
+set %itemFTloot POF_DEG_EEG_DDG_JJG_MJG_ODG
 ; ^^^ FindType věcí k lootu ^^^
 
-set %bagContFT CKF                    ; FindType kontejnerů jako pytel, batoh
+set %itemFTcont
+; ^^^ FindType kontejnerů jako pytel, batoh ^^^
+
 set %corpseFT YFM                     ; FindType kontejnerů mrtvol
 set %backpackID                       ; Nastav ID batohu pro loot, nebo nech proměnnou prázdnou pro hlavní batoh ( #backpackID )
 
 ; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 ; Genocida
-set %targetFT AC_AH_CD_ID_II_IS_OC_TG ; FindType cílů pro eliminaci :)
+set %targetFT AC_AH_CD_HS_ID_II_IS_OC_TG ; FindType cílů pro eliminaci :)
 
 ; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -25,6 +27,8 @@ set %weaponFT TSF_WSF                 ; FindType zbraní
 set %gutting on                       ; Zapíná / vypíná kuchání | on - kuchá / off - nekuchá
 set %guttingID                        ; Pokud chceš aby nástroj na kuchání našel skript, tak tenhle celý řádek zakomentuj nebo nech proměnnou prázdnou
 set %guttingFT BNF_CNF                ; FindType nástroje na kuchání | TSF_WSF - dýka
+set %WLgutFT
+set %BLgutFT HS_IS
 
 ; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -43,7 +47,7 @@ set %packHorseID QSG                  ; ID náklaďáka
 set %packHorsePosX 1958               ; Pozice X zaparkovanýho náklaďáka
 set %packHorsePosY 3064               ; Pozice Y zaparkovanýho náklaďáka
 set %packHorseWeightMax 1500          ; Nosnost nákladního koně je 1500 bez přetížení
-set %packHorseLootFT %lootFT          ; FindType itemů co jdou do náklaďáka, nebo nech %lootFT pro všechno co lootuješ
+set %packHorseLootFT %itemFTloot      ; FindType itemů co jdou do náklaďáka, nebo nech %itemFTloot pro všechno co lootuješ
 set %packHorseHitchingPostID UHQRJMD  ; ID úvaznýho kůlu
 
 ; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -57,14 +61,18 @@ set %mobileFindTimeout 20             ; Časový limit při move k pohybujícím
 set %immobileFindTolerance 2          ; Tolerance vzdálenosti při move k nepohybujícím se cílům
 set %immobileFindTimeout 20           ; Časový limit při move k pohybujícím se cílům
 
+set %pathFindMove 4
+
 ; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-;set %wpNum 1 ; Přeskočení waypointu
+set %wpNum 4 ; Přeskočení waypointu
 
 set %wpTimeout 50
 
-set %wp1 1968,3115
-set %wp2 1914,3120
+set %wp1 1861,3161
+set %wp2 1875,3079
+set %wp3 1915,3084
+set %wp4 2040,3187
 
 set %waitTime 5
 set %waitTimePlus 10
@@ -75,10 +83,17 @@ set %alwaysRunStay off
 set %emptyString
 ignoreItem #charID
 
-goSub consoleStart 1574 881 ; Ve Windows 10 při FullHD pravý dolní roh :)
+if *GNCD_itemFTcontainer_ . #shard = N/A
+   set *GNCD_itemFTcontainer_ . #shard
+if *GNCD_itemFTnotContainer_ . #shard = N/A
+   set *GNCD_itemFTnotContainer_ . #shard
+if *GNCD_itemFTname_ . #shard = N/A
+   set *GNCD_itemFTname_ . #shard
 
 if %backpackID = N/A || %backpackID = %emptyString
    set %backpackID #backpackID
+
+goSub consoleStart 1574 881 ; Ve Windows 10 při FullHD pravý dolní roh :)
 
 goSub itemInBackpackFinder #charID %weaponFT %weaponID ; Hledá zbraň v ruce
 if #result = #false
@@ -153,7 +168,7 @@ goto weightCheck
 looter:
 
 ; Hledá spadlé věci na zemi
-goSub findItems %lootFT G
+goSub findItems %itemFTloot G
 if #result <> #false
 {
    goSub moveTo #findX #findY %immobileFindTolerance %immobileFindTimeout
@@ -173,9 +188,28 @@ if #result = #false
    goto genocida
 set %corpseID #result
 goSub moveTo #findX #findY %immobileFindTolerance %immobileFindTimeout
-goSub useObjectOnTarget %guttingID %corpseID %gutting
-if %gutting = on && %weaponID <> %guttingID
-   goSub itemEquip %weaponID
+if %gutting = on && %lastTargetFT <> N/A
+{
+   if %WLgutFT <> N/A || %WLgutFT <> %emptyString
+   {
+      if %lastTargetFT in %WLgutFT
+      {
+         goSub useObjectOnTarget %guttingID %corpseID %gutting
+         if %weaponID <> %guttingID
+            goSub itemEquip %weaponID
+      }
+   }
+   if %BLgutFT <> N/A || %BLgutFT <> %emptyString
+   {
+      if %lastTargetFT notIn %BLgutFT
+      {
+         goSub useObjectOnTarget %guttingID %corpseID %gutting
+         if %weaponID <> %guttingID
+            goSub itemEquip %weaponID
+      }
+   }
+}
+
 
 set %containerID %corpseID
 set %containerNum 1
@@ -183,7 +217,7 @@ set %containerIDNum 1
 
 lookupContainer:
 set #lObjectID %containerID
-set %containerPos ( %containerIDNum - 1 ) * 160
+set %containerPos ( %containerIDNum - 1 ) * 200
 nextCPos %containerPos 0
 
 event macro 17 0
@@ -194,13 +228,24 @@ if #findCnt > 0
 {
    for #findIndex 1 #findCnt
    {
-      goSub findItemProperty #findType #findID ; PŘÍPADNĚ SMAZAT
-      if #findType in %bagContFT
+      ;goSub itemFTname #findType #findID
+      if #findType notIn *GNCD_itemFTcontainer_ . #shard && #findType notIn *GNCD_itemFTnotContainer_ . #shard && ( %itemFTcont = N/A || %itemFTcont = %emptyString )
+      {
+         if #shard = Andaria
+            goSub propertyStr #findID #true #spc , Predmetu
+         else
+            goSub propertyStr #findID Contents: , #spc /255
+         if #result >= 0
+            set *GNCD_itemFTcontainer_ . #shard *GNCD_itemFTcontainer_ . #shard , #findType , _
+         else
+            set *GNCD_itemFTnotContainer_ . #shard *GNCD_itemFTnotContainer_ . #shard , #findType , _
+      }
+      if #findType in %itemFTcont || ( #findType in *GNCD_itemFTcontainer_ . #shard && ( %itemFTcont = N/A || %itemFTcont = %emptyString ) )
       {
          set %containerID . %containerNum #findID
          set %containerNum %containerNum + 1
       }
-      if #findType in %lootFT
+      if #findType in %itemFTloot
       {
          wait %waitTimePlus
          exEvent drag #findID #findStack
@@ -221,6 +266,15 @@ if %containerID . %containerIDNum <> N/A
    set %containerIDNum %containerIDNum + 1
    goto lookupContainer
 }
+
+set %containerIDNum 1
+while %containerID . %containerIDNum <> N/A
+{
+   set %containerID . %containerIDNum N/A
+   set %containerIDNum %containerIDNum + 1
+}
+
+set %lastTargetFT N/A
 ignoreItem %corpseID
 
 ; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -308,12 +362,13 @@ if #result = #false
    goSub waypointRunner
    goto looter
 }
-goSub moveTo #findX #findY %mobileFindTolerance %mobileFindTimeout
+set %lastTargetFT #findType
+goSub moveTo #findX #findY %mobileFindTolerance %mobileFindTimeout #findID
 event macro 6 0
 set %charStatusWarMode #true
 set  #lTargetID #result
 event macro 27 0
-goSub moveTo #findX #findY %mobileFindTolerance %mobileFindTimeout #findID
+goSub moveTo #findX #findY %mobileFindTolerance %mobileFindTimeout #findID follow
 event macro 6 0
 set %charStatusWarMode #false
 
@@ -329,13 +384,7 @@ HALT
 
 ; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-sub findItemProperty
-if %1 in *findTypeName
-{
-   goSub cleanSub
-   return
-}
-
+sub itemFTname
 event property %2
 set %property #property
 str left %property 1
@@ -348,58 +397,95 @@ else
    set %pos1 1
 str pos %property $ 1
 set %pos2 #strRes - %pos1
+str mid %property %pos2 1
+if #strRes = #spc
+   set %pos2 %pos2 - 1
 str mid %property %pos1 %pos2
+set %propertyResult #strRes
 
-set *findTypeName *findTypeName , %1 , - , #strRes , /
-
+if %1 notIn *GNCD_itemFTname_ . #shard
+{
+   set *GNCD_itemFTname_ . #shard *GNCD_itemFTname_ . #shard , %1 , - , %propertyResult , /
+   goSub cleanSub
+   return
+}
+if %1 in *GNCD_itemFTname_ . #shard && %propertyResult notIn *GNCD_itemFTname_ . #shard
+{
+   str pos *GNCD_itemFTname_ . #shard %1
+   set %pos1 #strRes
+   str len %1
+   set %len1 #strRes
+   set %pos %pos1 + %len1
+   str ins *GNCD_itemFTname_ . #shard - , %propertyResult %pos
+   set *GNCD_itemFTname_ . #shard #strRes
+}
 goSub cleanSub
 return
 
 ; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 sub moveTo
-while ! ( ABS ( #charPosX - %1 ) <= %3 && ABS ( #charPosY - %2 ) <= %3 ) || %5 <> N/A
+while ! ( ABS ( #charPosX - %1 ) <= %3 && ABS ( #charPosY - %2 ) <= %3 ) || %6 = follow
 {
-   if #charPosX = %6 && #charPosY = %7 && %5 = N/A
+   if ! ( ABS ( #charPosX - %1 ) <= %3 && ABS ( #charPosY - %2 ) <= %3 )
    {
-      set %8 %1 - #charPosX
-      set %9 %2 - #charPosY
-      if %8 > 0
-         set %10 #charPosX + 3
-      if %8 < 0
-         set %10 #charPosX - 3
-      if %8 = 0
-         set %10 #charPosX
-      if %9 > 0
-         set %11 #charPosY + 3
-      if %9 < 0
-         set %11 #charPosY - 3
-      if %9 = 0
-         set %11 #charPosY
-      event pathFind %10 %11
-   }
-   if ! ( ABS ( #charPosX - %1 ) <= %3 && ABS ( #charPosY - %2 ) <= %3 ) && %1 <> 0 && %2 <> 0
-   {
-      set %6 #charPosX
-      set %7 #charPosY
+      set %7 #charPosX
+      set %8 #charPosY
       move %1 %2 %3 %4
+   }
+   if #charPosX = %7 && #charPosY = %8
+   {
+      if ! ( ABS ( #charPosX - %1 ) <= %pathFindMove && ABS ( #charPosY - %2 ) <= %pathFindMove )
+      {
+         set %diffX #charPosX - %1
+         set %diffY #charPosY - %2
+         if %diffX < 0
+            set %pfX #charPosX + %pathFindMove
+         if %diffX > 0
+            set %pfX #charPosX - %pathFindMove
+         if %diffX = 0
+            set %pfX #charPosX
+         if %diffY < 0
+            set %pfY #charPosY + %pathFindMove
+         if %diffY > 0
+            set %pfY #charPosY - %pathFindMove
+         if %diffY = 0
+            set %pfY #charPosY
+      }
+      else
+      {
+         set %pfX %1
+         set %pfY %2
+      }
+      event pathFind %pfX %pfY
    }
    if %5 <> N/A
    {
       findItem %5 G
-      if #findX <> 0 && #findY <> 0
+      if #findCnt = 0 && %6 <> search
+      {
+         goSub cleanSub
+         return #false
+      }
+      if #findCnt > 0 && %6 = search
+      {
+         goSub cleanSub
+         return #findID
+      }
+      if #findCnt > 0 && %6 <> search
       {
          set %1 #findX
          set %2 #findY
       }
    }
-   if %5 <> N/A && #findCnt = 0
-   {
-      set %5 N/A
-   }
+}
+if %5 <> N/A && #findCnt > 0
+{
+   goSub cleanSub
+   return #findID
 }
 goSub cleanSub
-return #findID
+return #false
 
 ; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -562,17 +648,10 @@ goSub wpCoordsFromString %wp . %wpNum
 
 goSub console Waypoint # , %wpNum ( , %wpPosX , , , %wpPosY , )
 
-repeat
-{
-   move %wpPosX %wpPosY 0 %wpTimeout
-   goSub findItems %targetFT G
-   if #result <> #false
-   {
-      goSub targetApproach #result
-      goto genocida
-   }
-}
-until %wpPosX = #charPosX && %wpPosY = #charPosY
+goSub moveTo %wpPosX %wpPosY 1 %wpTimeout %targetFT search
+if #result <> #false
+   goto genocida
+
 
 ; event macro 13 14  ; Odhalení skrytého
 
@@ -586,9 +665,9 @@ return
 
 sub propertyStr
 event property %1
+set %property #property
 set %propertyStringStart 1
-
-str count #property $
+str count %property $
 for %propertyStringCount 1 #strRes
 {
    str pos #property $ %propertyStringCount
@@ -596,20 +675,33 @@ for %propertyStringCount 1 #strRes
    set %propertyStringLength #strRes - %propertyStringStart
    str mid #property %propertyStringStart %propertyStringLength
    set %propertyStringStart %propertyStringPosition + 1
-   if %2 in #strRes
+   if %2 in #strRes && %2 <> #true
    {
       set %propertyString #strRes
+      str pos %propertyString %2
+      set %propertyStringPosition #strRes
       str len %2
-      str del %propertyString 1 #strRes
+      str del %propertyString %propertyStringPosition #strRes
       if %3 in #strRes
       {
          set %propertyString #strRes
+         str pos %propertyString %3
+         set %propertyStringPosition #strRes
          str len %propertyString
-         set %propertyStringLength #strRes
-         str len %3
-         set %propertyStringStart ( %propertyStringLength - #strRes ) + 1
-         str del %propertyString %propertyStringStart #strRes
+         set %propertyStringLength #strRes - %propertyStringPosition + 1
+         str del %propertyString %propertyStringPosition %propertyStringLength
       }
+      goSub cleanSub
+      return #strRes
+   }
+   if %3 in #strRes && %2 = #true
+   {
+      set %propertyString #strRes
+      str pos %propertyString %3
+      set %propertyStringPosition #strRes
+      str len %propertyString
+      set %propertyStringLength #strRes - %propertyStringPosition + 1
+      str del %propertyString %propertyStringPosition %propertyStringLength
       goSub cleanSub
       return #strRes
    }
