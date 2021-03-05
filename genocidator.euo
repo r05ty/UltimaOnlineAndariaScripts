@@ -1,7 +1,7 @@
 ; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 ; Looter
-set %itemFTloot POF_DEG_EEG_DDG_JJG_MJG_ODG
+set %itemFTloot POF_DEG_EEG_DDG_JJG_MJG_ODG_VRD
 ; ^^^ FindType věcí k lootu ^^^
 
 set %itemFTcont
@@ -65,7 +65,7 @@ set %pathFindMove 4
 
 ; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-set %wpNum 4 ; Přeskočení waypointu
+;set %wpNum 1 ; Přeskočení waypointu
 
 set %wpTimeout 50
 
@@ -89,6 +89,8 @@ if *GNCD_itemFTnotContainer_ . #shard = N/A
    set *GNCD_itemFTnotContainer_ . #shard
 if *GNCD_itemFTname_ . #shard = N/A
    set *GNCD_itemFTname_ . #shard
+if *GNCD_packHorseWeight_ . #charName = N/A
+   set *GNCD_packHorseWeight_ . #charName
 
 if %backpackID = N/A || %backpackID = %emptyString
    set %backpackID #backpackID
@@ -228,7 +230,7 @@ if #findCnt > 0
 {
    for #findIndex 1 #findCnt
    {
-      ;goSub itemFTname #findType #findID
+      goSub itemFTname #findType #findID
       if #findType notIn *GNCD_itemFTcontainer_ . #shard && #findType notIn *GNCD_itemFTnotContainer_ . #shard && ( %itemFTcont = N/A || %itemFTcont = %emptyString )
       {
          if #shard = Andaria
@@ -319,9 +321,9 @@ if #result = #true
       goSub useObjectOnTarget %packHorseHitchingPostID %packHorseID
       wait %waitTimePlus
       goSub propertyStr %packHorseID Weight: , #spc #spc , Stones
-      set *GpackHorseWeight #result
-      goSub console Naložení náklaďáka: *GpackHorseWeight
-      if *GpackHorseWeight > %packHorseWeightMax
+      set *GNCD_packHorseWeight_ . #charName #result
+      goSub console Naložení náklaďáka: *GNCD_packHorseWeight_ . #charName
+      if *GNCD_packHorseWeight_ . #charName > %packHorseWeightMax
       {
          goSub console Náklaďák plnej
 
@@ -349,7 +351,7 @@ if #result = #true
       halt
    }
 }
-menu Window Title Konzole - V: , #weight , / , #maxweight - N: *GpackHorseWeight , /1500
+menu Window Title Konzole - V: , #weight , / , #maxweight - N: *GNCD_packHorseWeight_ . #charName , /1500
 goto looter
 
 ; ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -403,20 +405,20 @@ if #strRes = #spc
 str mid %property %pos1 %pos2
 set %propertyResult #strRes
 
-if %1 notIn *GNCD_itemFTname_ . #shard
+if | , %1 , | notIn *GNCD_itemFTname_ . #shard
 {
-   set *GNCD_itemFTname_ . #shard *GNCD_itemFTname_ . #shard , %1 , - , %propertyResult , /
+   set *GNCD_itemFTname_ . #shard *GNCD_itemFTname_ . #shard , | , %1 , | , _ , | , %propertyResult , | , /
    goSub cleanSub
    return
 }
-if %1 in *GNCD_itemFTname_ . #shard && %propertyResult notIn *GNCD_itemFTname_ . #shard
+if | , %1 , | in *GNCD_itemFTname_ . #shard && | , %propertyResult , | notIn *GNCD_itemFTname_ . #shard
 {
-   str pos *GNCD_itemFTname_ . #shard %1
+   str pos *GNCD_itemFTname_ . #shard | , %1 , |
    set %pos1 #strRes
-   str len %1
+   str len | , %1 , |
    set %len1 #strRes
    set %pos %pos1 + %len1
-   str ins *GNCD_itemFTname_ . #shard - , %propertyResult %pos
+   str ins *GNCD_itemFTname_ . #shard _ , | , %propertyResult , | %pos
    set *GNCD_itemFTname_ . #shard #strRes
 }
 goSub cleanSub
